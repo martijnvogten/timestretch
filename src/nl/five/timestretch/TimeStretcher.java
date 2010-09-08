@@ -1,6 +1,5 @@
 package nl.five.timestretch;
 
-
 public class TimeStretcher {
 
 	private final float[] sourceBuffer;
@@ -9,6 +8,9 @@ public class TimeStretcher {
 	private Grain currentGrain = null;
 	private Grain fadingGrain = null;
 	private final Granulator granulator;
+	private boolean isPlaying = false;
+	private long playTime = 0L;
+	private int playOffset;
 
 	public TimeStretcher(float[] buffer, float sampleRate, float grainSizeSecs) {
 		this.sourceBuffer = buffer;
@@ -16,35 +18,48 @@ public class TimeStretcher {
 	}
 
 	public void process(float[] signal) {
-		if (currentGrain == null) {
+		if (currentGrain == null && isPlaying) {
 			currentGrain = createGrain();
 		}
-		for(int i = 0; i < signal.length; i++) {
-			if (currentGrain.isFading(now)) {
-				fadingGrain = currentGrain;
-				currentGrain = createGrain();
+		for (int i = 0; i < signal.length; i++) {
+			if (currentGrain != null) {
+				signal[i] = currentGrain.getSample(now);
+				if (currentGrain.isFading(now)) {
+					fadingGrain = currentGrain;
+					currentGrain = isPlaying ? createGrain() : null;
+				}
 			}
-			signal[i] = currentGrain.getSample(now);
 			if (fadingGrain != null) {
 				signal[i] += fadingGrain.getSample(now);
 				if (!fadingGrain.hasMoreSamples(now)) {
 					fadingGrain = null;
 				}
 			}
-			now ++;
+			now++;
 		}
 	}
 
-	/**
-	 * Creates a grain that starts fading in right now.
-	 * @return
-	 */
+	public void play() {
+		playOffset = 0;
+		playTime = now;
+		isPlaying = true;
+	}
+
+	public void stop() {
+		isPlaying = false;
+	}
+
 	private Grain createGrain() {
-		int startIndex = Math.round(now / stretchFactor) % sourceBuffer.length;
-		return granulator.createGrain(startIndex, now);
+		return granulator.createGrain(calculateCurrentBufferIndex(), now);
+	}
+
+	private int calculateCurrentBufferIndex() {
+		return (playOffset + Math.round((now - playTime) / stretchFactor)) % sourceBuffer.length;
 	}
 
 	public void setStretchFactor(float stretchFactor) {
+		playOffset = calculateCurrentBufferIndex();
+		playTime = now;
 		this.stretchFactor = stretchFactor;
 	}
 
