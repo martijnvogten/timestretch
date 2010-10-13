@@ -1,6 +1,6 @@
 package nl.five.timestretch.demo;
 
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.Arrays;
 
 import javax.sound.sampled.AudioFormat;
@@ -8,14 +8,14 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.Mixer;
-import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.Mixer.Info;
+import javax.sound.sampled.SourceDataLine;
 
-import nl.five.timestretch.TimeStretcher;
+import nl.five.timestretch.compact.TimeStretcherCompact;
 
 public class JavaSoundAudioPlayer implements AudioPlayer {
 
-	private TimeStretcher timeStretcher = null;
+	private TimeStretcherCompact timeStretcher = null;
 	private boolean stopped;
 	private Thread audioThread;
 
@@ -30,17 +30,19 @@ public class JavaSoundAudioPlayer implements AudioPlayer {
 
 	private void runAudio() {
 		try {
+			int bufferSize = 8192;
+			DataLine.Info wanted = new DataLine.Info(SourceDataLine.class, new AudioFormat(44100F, 16, 2, true, true), bufferSize);
 			Info[] infos = AudioSystem.getMixerInfo();
+			
 			for (Info info : infos) {
 				Mixer mixer = AudioSystem.getMixer(info);
-				
-				int bufferSize = 2048;
-				
-				DataLine.Info wanted = new DataLine.Info(SourceDataLine.class, new AudioFormat(44100F, 16, 1, true, true), bufferSize);
+				if (!mixer.isLineSupported(wanted)) {
+					continue;
+				}
 				SourceDataLine outputLine = (SourceDataLine) mixer.getLine(wanted);
 				
 				float[] buffer = new float[bufferSize];
-				byte[] byteBuffer = new byte[bufferSize * 2];
+				byte[] byteBuffer = new byte[bufferSize * outputLine.getFormat().getFrameSize()];
 
 				outputLine.open();
 				outputLine.start();
@@ -71,6 +73,8 @@ public class JavaSoundAudioPlayer implements AudioPlayer {
 			int iSample = quantize16(input[i]*twoPower15);
 			output[byteIndex++]=(byte) (iSample >> 8);
 			output[byteIndex++]=(byte) (iSample & 0xFF);
+			output[byteIndex++]=(byte) (iSample >> 8);
+			output[byteIndex++]=(byte) (iSample & 0xFF);
 		}
 	}
 
@@ -87,10 +91,10 @@ public class JavaSoundAudioPlayer implements AudioPlayer {
 	private static final float twoPower15 = 32768.0f;
 	private static final float invTwoPower15 = 1 / twoPower15;
 
-	public void loadFile(String fileName) {
+	public void loadFile(InputStream fileStream) {
 		AudioInputStream sample;
 		try {
-			sample = AudioSystem.getAudioInputStream(new FileInputStream(fileName));
+			sample = AudioSystem.getAudioInputStream(fileStream);
 			AudioFormat format = sample.getFormat();
 			int frameSize = format.getFrameSize();
 			format.getEncoding();
@@ -104,11 +108,15 @@ public class JavaSoundAudioPlayer implements AudioPlayer {
 					offset += frameSize;
 				}
 			}
-			timeStretcher = new TimeStretcher(floatSample, 44100, 0.08F);
+			loadFile(floatSample);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException(e);
 		}
+	}
+	
+	public void loadFile(float[] samples) {
+		timeStretcher = new TimeStretcherCompact(samples, 44100, 0.08F);
 	}
 
 	public void play() {

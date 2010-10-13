@@ -7,6 +7,7 @@ import java.awt.Frame;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 
 import javax.swing.BorderFactory;
@@ -42,12 +43,12 @@ public class TimeStretchGui extends JPanel {
 		});
 		
 
-		Button openFileButton = new Button("Open...");
-		openFileButton.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				showFileDialog();
-			}
-		});
+//		Button openFileButton = new Button("Open...");
+//		openFileButton.addActionListener(new ActionListener() {
+//			public void actionPerformed(ActionEvent e) {
+//				showFileDialog();
+//			}
+//		});
 
 		// Create the label.
 		JLabel sliderLabel = new JLabel("Tempo", JLabel.CENTER);
@@ -65,8 +66,8 @@ public class TimeStretchGui extends JPanel {
 		});
 
 		// Put everything together.
-		add(openFileButton);
-		openFileButton.setBounds(0, 0, 200, 40);
+//		add(openFileButton);
+//		openFileButton.setBounds(0, 0, 200, 40);
 		add(sliderLabel);
 		sliderLabel.setBounds(0, 40, 200, 20);
 		add(tempoSlider);
@@ -82,13 +83,14 @@ public class TimeStretchGui extends JPanel {
 		player.setStretchFactor(value);
 	}
 
+	@SuppressWarnings("unused")
 	private void showFileDialog() {
 		Frame frame = (Frame) TimeStretchGui.this.getTopLevelAncestor();
 		FileDialog dialog = new FileDialog(frame, "Select audio file", FileDialog.LOAD);
 		dialog.setVisible(true);
 		if (dialog.getFile() != null) {
 			try {
-				player.loadFile(new File(dialog.getDirectory(), dialog.getFile()).getCanonicalPath());
+				player.loadFile(new FileInputStream(new File(dialog.getDirectory(), dialog.getFile())));
 			} catch (IOException e) {
 				e.printStackTrace();
 				throw new RuntimeException(e);
